@@ -1,0 +1,167 @@
+name: 自动保活 SAP
+
+on:
+  schedule:
+    - cron: '58 23 * * *'     # actions时间不准，不准确再酌情调整
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  restart-sg-apps:
+    runs-on: ubuntu-latest
+    name: Restart SG Apps
+    if: always()  
+    continue-on-error: true
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install CF CLI
+      run: |
+        wget -q -O - https://packages.cloudfoundry.org/debian/cli.cloudfoundry.org.key | sudo apt-key add -
+        echo "deb https://packages.cloudfoundry.org/debian stable main" | sudo tee /etc/apt/sources.list.d/cloudfoundry-cli.list
+        sudo apt-get update
+        sudo apt-get install -y cf8-cli
+
+    - name: Determine CF API endpoint
+      run: |
+        echo "CF_API=https://api.cf.ap21.hana.ondemand.com" >> $GITHUB_ENV
+        echo "使用API端点: $CF_API (区域: SG)"
+
+    - name: Login to Cloud Foundry
+      run: |
+        # 先登录以获取组织列表
+        cf login -a ${{ env.CF_API }} -u "${{ secrets.EMAIL }}" -p "${{ secrets.PASSWORD }}"
+        
+        # 获取组织列表
+        ORG=$(cf orgs | sed -n '4p')
+        echo "Selected org: $ORG"
+        echo "ORG=$ORG" >> $GITHUB_ENV
+
+        # 获取空间列表
+        SPACE=$(cf spaces | sed -n '4p')
+        echo "Selected space: $SPACE"
+        echo "SPACE=$SPACE" >> $GITHUB_ENV
+
+        # 使用获取的组织和空间重新登录
+        cf login -a ${{ env.CF_API }} -u "${{ secrets.EMAIL }}" -p "${{ secrets.PASSWORD }}" -o "$ORG" -s "$SPACE"
+
+    - name: Get all applications
+      id: get-sg-apps
+      run: |
+        # 获取所有应用名称（跳过前 3 行提示和表头）
+        apps=$(cf apps | awk 'NR>3 {print $1}' | grep -v '^$')
+        echo "发现的应用:"
+        echo "$apps"
+
+        # 直接输出到 GITHUB_OUTPUT（多行字符串）
+        echo "apps<<EOF" >> $GITHUB_OUTPUT
+        echo "$apps" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Restart all applications
+      run: |
+        # 从上一步获取应用列表
+        apps="${{ steps.get-sg-apps.outputs.apps }}"
+
+        if [ -z "$apps" ]; then
+          echo "在区域 SG 中未找到任何应用"
+          exit 0
+        fi
+        
+        echo "重启区域 SG 中的应用:"
+        echo "$apps"
+        
+        # 重启每个应用
+        for app in $apps; do
+          echo "正在重启应用: $app"
+          cf restart "$app"
+          echo "应用 $app 重启成功"
+          echo "----------------------------------------"
+          sleep 20  # 每个应用之间等待 20 秒
+        done
+
+    - name: Verify applications status
+      run: |
+        echo "区域 SG 中所有应用的最终状态:"
+        cf apps
+
+  restart-us-apps:
+    runs-on: ubuntu-latest
+    name: Restart US Apps
+    if: always()  
+    continue-on-error: true
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install CF CLI
+      run: |
+        wget -q -O - https://packages.cloudfoundry.org/debian/cli.cloudfoundry.org.key | sudo apt-key add -
+        echo "deb https://packages.cloudfoundry.org/debian stable main" | sudo tee /etc/apt/sources.list.d/cloudfoundry-cli.list
+        sudo apt-get update
+        sudo apt-get install -y cf8-cli
+
+    - name: Determine CF API endpoint
+      run: |
+        echo "CF_API=https://api.cf.us10-001.hana.ondemand.com" >> $GITHUB_ENV
+        echo "使用API端点: $CF_API (区域: US)"
+
+    - name: Login to Cloud Foundry
+      run: |
+        # 先登录以获取组织列表
+        cf login -a ${{ env.CF_API }} -u "${{ secrets.EMAIL }}" -p "${{ secrets.PASSWORD }}"
+        
+        # 获取组织列表
+        ORG=$(cf orgs | sed -n '4p')
+        echo "Selected org: $ORG"
+        echo "ORG=$ORG" >> $GITHUB_ENV
+
+        # 获取空间列表
+        SPACE=$(cf spaces | sed -n '4p')
+        echo "Selected space: $SPACE"
+        echo "SPACE=$SPACE" >> $GITHUB_ENV
+
+        # 使用获取的组织和空间重新登录
+        cf login -a ${{ env.CF_API }} -u "${{ secrets.EMAIL }}" -p "${{ secrets.PASSWORD }}" -o "$ORG" -s "$SPACE"
+
+    - name: Get all applications
+      id: get-us-apps
+      run: |
+        # 获取所有应用名称（跳过前 3 行提示和表头）
+        apps=$(cf apps | awk 'NR>3 {print $1}' | grep -v '^$')
+        echo "发现的应用:"
+        echo "$apps"
+        
+        # 直接输出到 GITHUB_OUTPUT（多行字符串）
+        echo "apps<<EOF" >> $GITHUB_OUTPUT
+        echo "$apps" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Restart all applications
+      run: |
+        # 从上一步获取应用列表
+        apps="${{ steps.get-us-apps.outputs.apps }}"
+
+        if [ -z "$apps" ]; then
+          echo "在区域 US 中未找到任何应用"
+          exit 0
+        fi
+        
+        echo "重启区域 US 中的应用:"
+        echo "$apps"
+        
+        # 重启每个应用
+        for app in $apps; do
+          echo "正在重启应用: $app"
+          cf restart "$app"
+          echo "应用 $app 重启成功"
+          echo "----------------------------------------"
+          sleep 20  # 每个应用之间等待 20 秒
+        done
+
+    - name: Verify applications status
+      run: |
+        echo "区域 US 中所有应用的最终状态:"
+        cf apps

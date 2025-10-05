@@ -1,0 +1,257 @@
+name: 删除指定区域所有SAP应用
+
+on:
+  workflow_dispatch:  # 允许手动触发
+    inputs:
+      region:
+        description: '选择要删除应用的区域'
+        required: true
+        default: 'SG(free)'
+        type: choice
+        options:
+          # 免费区域
+          - SG(free)  # azure新加坡
+          - US(free)  # aws美国    
+          # AWS 区域
+          - AWS-AU(Sydney)
+          - AWS-BR(São Paulo)
+          - AWS-KR(Seoul)
+          - AWS-CA(Montreal)
+          - AWS-US(VA)
+          - AWS-US(OR)
+          - AWS-EU(Frankfurt)
+          - AWS-JP(Tokyo)
+          - AWS-SG(Singapore)
+          # GCP 区域
+          - GCP-AU(Sydney)
+          - GCP-BR(São Paulo)
+          - GCP-US(IA)
+          - GCP-EU(Frankfurt)
+          - GCP-JP(Osaka)
+          - GCP-JP(Tokyo)
+          - GCP-IL(Tel Aviv)
+          - GCP-IN(Mumbai)
+          - GCP-KSA(Dammam)
+          # Azure 区域
+          - Azure-AU(Sydney)
+          - Azure-BR(São Paulo)
+          - Azure-CA(Montreal)
+          - Azure-US(VA)
+          - Azure-US(WA)
+          - Azure-EU(Netherlands)
+          - Azure-JP(Tokyo)
+          - Azure-SG(Singapore)
+          # SAP Neo 区域
+          - Neo-UAE(Dubai)
+          - Neo-KSA(Riyadh)
+      confirmation:
+        description: '请输入 "确认删除" 以确认操作'
+        required: true
+        type: string
+
+jobs:
+  delete-apps:
+    runs-on: ubuntu-latest
+    name: Delete Apps from ${{ github.event.inputs.region }}
+    
+    steps:
+    - name: 验证确认短语
+      run: |
+        if [ "${{ github.event.inputs.confirmation }}" != "确认删除" ]; then
+          echo "错误：必须输入 '确认删除' 来确认操作"
+          exit 1
+        fi
+
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install CF CLI
+      run: |
+        wget -q -O - https://packages.cloudfoundry.org/debian/cli.cloudfoundry.org.key | sudo apt-key add -
+        echo "deb https://packages.cloudfoundry.org/debian stable main" | sudo tee /etc/apt/sources.list.d/cloudfoundry-cli.list
+        sudo apt-get update
+        sudo apt-get install -y cf8-cli
+
+    - name: Set API endpoint
+      run: |
+        case "${{ github.event.inputs.region }}" in
+          # 免费区域
+          "SG(free)")
+            echo "CF_API=https://api.cf.ap21.hana.ondemand.com" >> $GITHUB_ENV
+            ;;
+          "US(free)")
+            echo "CF_API=https://api.cf.us10-001.hana.ondemand.com" >> $GITHUB_ENV
+            ;;
+          
+          # AWS 区域
+          "AWS-AU(Sydney)")
+            echo "CF_API=https://api.cf.ap10.hana.ondemand.com" >> $GITHUB_ENV
+            ;;
+          "AWS-BR(São Paulo)")
+            echo "CF_API=https://api.cf.br10.hana.ondemand.com" >> $GITHUB_ENV
+            ;;
+          "AWS-KR(Seoul)")
+            echo "CF_API=https://api.cf.ap12.hana.ondemand.com" >> $GITHUB_ENV
+            ;;
+          "AWS-CA(Montreal)")
+            echo "CF_API=https://api.cf.ca10.hana.ondemand.com" >> $GITHUB_ENV
+            ;;
+          "AWS-US(VA)")
+            echo "CF_API=https://api.cf.us10-001.hana.ondemand.com" >> $GITHUB_ENV
+            ;;
+          "AWS-US(OR)")
+            echo "CF_API=https://api.cf.us11.hana.ondemand.com" >> $GITHUB_ENV
+            ;;
+          "AWS-EU(Frankfurt)")
+            echo "CF_API=https://api.cf.eu10-005.hana.ondemand.com" >> $GITHUB_ENV
+            ;;
+          "AWS-JP(Tokyo)")
+            echo "CF_API=https://api.cf.jp10.hana.ondemand.com" >> $GITHUB_ENV
+            ;;
+          "AWS-SG(Singapore)")
+            echo "CF_API=https://api.cf.ap11.hana.ondemand.com" >> $GITHUB_ENV
+            ;;
+          
+          # GCP 区域
+          "GCP-AU(Sydney)")
+            echo "CF_API=https://api.cf.ap30.hana.ondemand.com" >> $GITHUB_ENV
+            ;;
+          "GCP-BR(São Paulo)")
+            echo "CF_API=https://api.cf.br30.hana.ondemand.com" >> $GITHUB_ENV
+            ;;
+          "GCP-US(IA)")
+            echo "CF_API=https://api.cf.us30.hana.ondemand.com" >> $GITHUB_ENV
+            ;;
+          "GCP-EU(Frankfurt)")
+            echo "CF_API=https://api.cf.eu30.hana.ondemand.com" >> $GITHUB_ENV
+            ;;
+          "GCP-JP(Osaka)")
+            echo "CF_API=https://api.cf.jp30.hana.ondemand.com" >> $GITHUB_ENV
+            ;;
+          "GCP-JP(Tokyo)")
+            echo "CF_API=https://api.cf.jp31.hana.ondemand.com" >> $GITHUB_ENV
+            ;;
+          "GCP-IL(Tel Aviv)")
+            echo "CF_API=https://api.cf.il30.hana.ondemand.com" >> $GITHUB_ENV
+            ;;
+          "GCP-IN(Mumbai)")
+            echo "CF_API=https://api.cf.in30.hana.ondemand.com" >> $GITHUB_ENV
+            ;;
+          "GCP-KSA(Dammam)")
+            echo "CF_API=https://api.cf.sa31.hana.ondemand.com" >> $GITHUB_ENV
+            ;;
+          
+          # Azure 区域
+          "Azure-AU(Sydney)")
+            echo "CF_API=https://api.cf.ap20.hana.ondemand.com" >> $GITHUB_ENV
+            ;;
+          "Azure-BR(São Paulo)")
+            echo "CF_API=https://api.cf.br20.hana.ondemand.com" >> $GITHUB_ENV
+            ;;
+          "Azure-CA(Montreal)")
+            echo "CF_API=https://api.cf.ca20.hana.ondemand.com" >> $GITHUB_ENV
+            ;;
+          "Azure-US(VA)")
+            echo "CF_API=https://api.cf.us21.hana.ondemand.com" >> $GITHUB_ENV
+            ;;
+          "Azure-US(WA)")
+            echo "CF_API=https://api.cf.us20.hana.ondemand.com" >> $GITHUB_ENV
+            ;;
+          "Azure-EU(Netherlands)")
+            echo "CF_API=https://api.cf.eu20.hana.ondemand.com" >> $GITHUB_ENV
+            ;;
+          "Azure-JP(Tokyo)")
+            echo "CF_API=https://api.cf.jp20.hana.ondemand.com" >> $GITHUB_ENV
+            ;;
+          "Azure-SG(Singapore)")
+            echo "CF_API=https://api.cf.ap21.hana.ondemand.com" >> $GITHUB_ENV
+            ;;
+          
+          # SAP Neo 区域
+          "Neo-UAE(Dubai)")
+            echo "CF_API=https://api.cf.neo-ae1.hana.ondemand.com" >> $GITHUB_ENV
+            ;;
+          "Neo-KSA(Riyadh)")
+            echo "CF_API=https://api.cf.neo-sa1.hana.ondemand.com" >> $GITHUB_ENV
+            ;;
+        esac
+
+    - name: 基础登录到Cloud Foundry
+      run: |
+        # 基础登录（不带组织和空间）
+        cf login -a ${{ env.CF_API }} -u "${{ secrets.EMAIL }}" -p "${{ secrets.PASSWORD }}"
+
+    - name: 获取组织和空间
+      run: |
+        # 获取组织列表
+        ORG=$(cf orgs | sed -n '4p')
+        echo "获取到的组织: $ORG"
+        if [ -z "$ORG" ]; then
+          echo "错误：未找到任何组织"
+          exit 1
+        fi
+        echo "ORG=$ORG" >> $GITHUB_ENV
+
+        # 获取空间列表
+        SPACE=$(cf spaces | sed -n '4p')
+        echo "获取到的空间: $SPACE"
+        if [ -z "$SPACE" ]; then
+          echo "错误：未找到任何空间"
+          exit 1
+        fi
+        echo "SPACE=$SPACE" >> $GITHUB_ENV
+
+    - name: 登录到指定组织和空间
+      run: |
+        # 使用获取的组织和空间重新登录
+        cf login -a ${{ env.CF_API }} -u "${{ secrets.EMAIL }}" -p "${{ secrets.PASSWORD }}" -o "${{ env.ORG }}" -s "${{ env.SPACE }}"
+
+    - name: 获取所有应用
+      id: get-apps
+      run: |
+        # 获取所有应用名称（使用你的方法）
+        apps=$(cf apps | tail -n +4 | awk '{print $1}' | grep -v '^$')
+        echo "发现的应用:"
+        echo "$apps"
+        
+        # 检查是否有应用
+        if [ -z "$apps" ]; then
+          echo "在区域 ${{ github.event.inputs.region }} 中未找到任何应用"
+          echo "has_apps=false" >> $GITHUB_OUTPUT
+          exit 0
+        else
+          echo "has_apps=true" >> $GITHUB_OUTPUT
+        fi
+        
+        # 直接输出到 GITHUB_OUTPUT（多行字符串）
+        delimiter="EOF_$(date +%s)"
+        echo "apps<<$delimiter" >> $GITHUB_OUTPUT
+        echo "$apps" >> $GITHUB_OUTPUT
+        echo "$delimiter" >> $GITHUB_OUTPUT
+
+    - name: 删除所有应用
+      if: steps.get-apps.outputs.has_apps == 'true'
+      run: |
+        # 从上一步获取应用列表
+        apps="${{ steps.get-apps.outputs.apps }}"
+        
+        echo "正在删除区域 ${{ github.event.inputs.region }} 中的应用:"
+        echo "$apps"
+        
+        # 删除每个应用
+        for app in $apps; do
+          echo "正在删除应用: $app"
+          cf delete -f -r "$app"  # -f 强制删除，不需要确认；-r 同时删除关联的路由
+          if [ $? -eq 0 ]; then
+            echo "应用 $app 删除成功"
+          else
+            echo "应用 $app 删除失败，继续下一个应用"
+          fi
+          echo "----------------------------------------"
+          sleep 5  # 每个应用之间等待 5 秒
+        done
+
+    - name: 验证应用已删除
+      run: |
+        echo "区域 ${{ github.event.inputs.region }} 中剩余的应用:"
+        cf apps || echo "获取应用列表失败，可能已经没有应用"
