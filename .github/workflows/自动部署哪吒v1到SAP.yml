@@ -183,7 +183,7 @@ jobs:
             ;;
           "Azure-US(WA)")
             echo "CF_API=https://api.cf.us20.hana.ondemand.com" >> $GITHUB_ENV
-            echo "APP_NAME=az-wa$RANDOM_STR" >> $GITHUB_ENV
+            echo="APP_NAME=az-wa$RANDOM_STR" >> $GITHUB_ENV
             ;;
           "Azure-EU(Netherlands)")
             echo "CF_API=https://api.cf.eu20-001.hana.ondemand.com" >> $GITHUB_ENV
@@ -214,22 +214,16 @@ jobs:
           echo "APP_NAME=${{ github.event.inputs.app_name }}" >> $GITHUB_ENV
         fi
         
-        # 如果自定义了docker镜像变量则使用定义的，否则按照选择的
+        # 如果自定义了docker镜像变量则使用定义的，否则使用默认镜像
         if [[ -n "${{ secrets.DOCKER_IMAGE }}" ]]; then
           echo "DOCKER_IMAGE=${{ secrets.DOCKER_IMAGE }}" >> $GITHUB_ENV
         else
-          if [ "${{ github.event.inputs.type }}" = "刘亦菲" ]; then
-            echo "DOCKER_IMAGE=ghcr.io/legendmeinan/nezhav1:latest" >> $GITHUB_ENV
-          elif [ "${{ github.event.inputs.type }}" = "高圆圆" ]; then
-            echo "DOCKER_IMAGE=ghcr.io/legendmeinan/nezhav1:latest" >> $GITHUB_ENV
-          else 
-            echo "DOCKER_IMAGE=ghcr.io/legendmeinan/nezhav1:latest" >> $GITHUB_ENV
-          fi
+          echo "DOCKER_IMAGE=ghcr.io/legendmeinan/nezhav1:latest" >> $GITHUB_ENV
         fi
         
         echo "使用API端点: $CF_API"
         echo "应用名称: $APP_NAME"
-        echo "部署类型: ${{ env.DOCKER_IMAGE }}"
+        echo "部署类型: $DOCKER_IMAGE"
 
     - name: Login to Cloud Foundry
       run: |
@@ -237,11 +231,19 @@ jobs:
 
         # 获取组织列表
         ORG=$(cf orgs | sed -n '4p')
+        if [ -z "$ORG" ]; then
+          echo "❌ 未找到组织，请检查账号配置"
+          exit 1
+        fi
         echo "Selected org: $ORG"
         echo "ORG=$ORG" >> $GITHUB_ENV
 
         # 获取空间列表
         SPACE=$(cf spaces | sed -n '4p')
+        if [ -z "$SPACE" ]; then
+          echo "❌ 未找到空间，请检查账号配置"
+          exit 1
+        fi
         echo "Selected space: $SPACE"
         echo "SPACE=$SPACE" >> $GITHUB_ENV
 
@@ -249,13 +251,20 @@ jobs:
         cf login -a ${{ env.CF_API }} -u "${{ secrets.EMAIL }}" -p "${{ secrets.PASSWORD }}" -o "$ORG" -s "$SPACE" 
      
     - name: Deploy application
-      timeout-minutes: 1
+      timeout-minutes: 5
       run: |
-        cf push ${{ env.APP_NAME }} --docker-image ${{ env.DOCKER_IMAGE }} -m 1024M -k 2048M -u process || true
-        echo "✅ Deployment process completed"
+        echo "📦 开始部署应用..."
+        if cf push ${{ env.APP_NAME }} --docker-image ${{ env.DOCKER_IMAGE }} -m 1024M -k 2048M -u process; then
+          echo "✅ 部署成功，稍后设置环境变量"
+          echo "DEPLOY_STATUS=success" >> $GITHUB_ENV
+        else
+          echo "⚠️ 部署失败，尝试重启"
+          echo "DEPLOY_STATUS=pending" >> $GITHUB_ENV
+        fi
     
     - name: Set environment variables
       run: |
+        echo "🔧 设置环境变量..."
         # 环境变量，参考哪吒面板:https://github.com/dsadsadsss/Docker-for-Nezha-Argo-server-v1.x.git
         cf set-env ${{ env.APP_NAME }} NAME "nezha"
         cf set-env ${{ env.APP_NAME }} UUID "${{ secrets.UUID }}"
@@ -272,35 +281,100 @@ jobs:
         
         # 可选：从文件读取环境变量(如果存在)
         if [ -f .env ]; then
+          echo "📄 发现 .env 文件，正在读取额外配置..."
           while IFS= read -r line; do
+            # 跳过注释和空行
             if [[ ! "$line" =~ ^# ]] && [[ -n "$line" ]]; then
               IFS='=' read -r key value <<< "$line"
-              cf set-env ${{ env.APP_NAME }} "$key" "$value"
+              if [[ -n "$key" ]] && [[ -n "$value" ]]; then
+                echo "  设置: $key"
+                cf set-env ${{ env.APP_NAME }} "$key" "$value"
+              fi
             fi
           done < .env
+          echo "✅ .env 文件配置完成"
         fi
 
     - name: Restage application
+      timeout-minutes: 5
       run: |
-        cf restage ${{ env.APP_NAME }}
+        echo "🔄 重启应用以应用新配置..."
+        if cf restage ${{ env.APP_NAME }}; then
+          echo "✅ 应用重启成功"
+          echo "RESTAGE_STATUS=success" >> $GITHUB_ENV
+        else
+          echo "❌ 应用重启失败"
+          echo "RESTAGE_STATUS=failed" >> $GITHUB_ENV
+          exit 1
+        fi
 
     - name: Verify deployment
+      if: success()
       run: |
+        echo "🔍 验证部署状态..."
         cf app ${{ env.APP_NAME }}
-        echo "Deployment completed successfully!"
+        
+        # 检查应用状态
+        APP_STATUS=$(cf app ${{ env.APP_NAME }} | grep "^#0" | awk '{print $2}')
+        if [ "$APP_STATUS" = "running" ]; then
+          echo "✅ 应用运行正常"
+        else
+          echo "⚠️ 应用状态异常: $APP_STATUS"
+        fi
+
+    - name: Cleanup on failure
+      if: failure() && env.RESTAGE_STATUS == 'failed'
+      run: |
+        echo "🧹 检测到重启失败，开始清理..."
+        
+        # 检查应用是否存在
+        if cf app ${{ env.APP_NAME }} &> /dev/null; then
+          echo "📋 应用当前状态:"
+          cf app ${{ env.APP_NAME }}
+          
+          echo ""
+          echo "🗑️ 删除失败的应用实例..."
+          if cf delete ${{ env.APP_NAME }} -f; then
+            echo "✅ 应用已清理"
+          else
+            echo "⚠️ 清理失败，请手动检查"
+          fi
+        else
+          echo "ℹ️ 应用不存在，无需清理"
+        fi
+        
+        echo ""
+        echo "💡 建议："
+        echo "  1. 检查 GitHub Secrets 配置是否正确"
+        echo "  2. 检查 Docker 镜像是否可用"
+        echo "  3. 查看上方日志了解具体错误"
+        echo "  4. 修复问题后重新运行工作流"
 
     - name: 详细部署信息
+      if: success()
       run: |
-        echo "🚀 部署完成！详细信息如下："
+        echo "=========================================="
+        echo "🎉 部署完成！详细信息如下："
+        echo "=========================================="
         echo "区域(Region): ${{ github.event.inputs.region }}"
         echo "组织(ORG): ${{ env.ORG }}"
         echo "空间(SPACE): ${{ env.SPACE }}"
         echo "应用名称(App Name): ${{ env.APP_NAME }}"
+        echo "Docker镜像: ${{ env.DOCKER_IMAGE }}"
+        echo ""
 
         # 获取应用路由
         ROUTE=$(cf app ${{ env.APP_NAME }} | grep "routes:" | awk '{print $2}')
         if [ -n "$ROUTE" ]; then
-          echo "应用 URL (APP_URL): https://$ROUTE"
+          echo "=========================================="
+          echo "🌐 应用 URL: https://$ROUTE"
+          echo "=========================================="
+          echo ""
+          echo "📝 后续操作："
+          echo "  1. 访问上方 URL 检查应用运行状态"
+          echo "  2. 登录哪吒面板进行配置"
+          echo "  3. 如需更新，重新运行此工作流"
         else
-          echo "⚠️ 未找到应用路由，请检查部署状态。"
+          echo "⚠️ 未找到应用路由，请检查部署状态"
+          cf routes
         fi
