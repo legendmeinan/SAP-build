@@ -56,7 +56,7 @@ on:
       app_name:
         description: '应用名称（可选，留空则自动生成，不可中文）'
         required: false
-        default: 'fire'
+        default: 'nezhav1'
 
 jobs:
   deploy-app:
