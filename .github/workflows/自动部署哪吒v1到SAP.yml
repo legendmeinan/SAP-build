@@ -249,7 +249,7 @@ jobs:
         cf login -a ${{ env.CF_API }} -u "${{ secrets.EMAIL }}" -p "${{ secrets.PASSWORD }}" -o "$ORG" -s "$SPACE" 
      
     - name: Deploy application
-      timeout-minutes: 2
+      timeout-minutes: 1
       run: |
         cf push ${{ env.APP_NAME }} --docker-image ${{ env.DOCKER_IMAGE }} -m 1024M -k 2048M -u process || true
         echo "✅ Deployment process completed"
@@ -281,19 +281,6 @@ jobs:
             fi
           done < .env
         fi
-
-        # 如果 DOCKER_IMAGE 中否包含 xhttp、goxhttp、ws 等关键词说明为直连镜像
-        if [[ "${{ env.DOCKER_IMAGE }}" =~ (xhttp|goxhttp|ws) ]]; then
-          # 获取应用路由
-          ROUTE=$(cf app ${{ env.APP_NAME }} | grep "routes:" | awk '{print $2}')
-          if [ -n "$ROUTE" ]; then
-            echo "设置 DOMAIN 环境变量为: $ROUTE"
-            cf set-env ${{ env.APP_NAME }} DOMAIN "$ROUTE"
-          else
-            echo "⚠️ 未找到应用路由，无法设置 DOMAIN,请手动将节点里的address、host和sni改为应用域名"
-          fi
-        fi
-        
 
     - name: Restage application
       run: |
