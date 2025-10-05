@@ -264,7 +264,7 @@ jobs:
         cf set-env ${{ env.APP_NAME }} GH_CLIENTSECRET "${{ secrets.GH_CLIENTSECRET }}"
         cf set-env ${{ env.APP_NAME }} GH_CLIENTID "${{ secrets.GH_CLIENTID }}"
         cf set-env ${{ env.APP_NAME }} API_TOKEN "${{ secrets.API_TOKEN }}"
-        cf set-env ${{ env.APP_NAME }} DASH_TOKEN "${{ secrets.DASH_TOKEN || '' }}"
+        cf set-env ${{ env.APP_NAME }} DASH_TOKEN "${{ secrets.DASH_TOKEN }}"
         cf set-env ${{ env.APP_NAME }} GH_REPO "${{ secrets.GH_REPO }}"
         cf set-env ${{ env.APP_NAME }} GH_EMAIL "${{ secrets.GH_EMAIL }}"
         cf set-env ${{ env.APP_NAME }} GH_PAT "${{ secrets.GH_PAT }}"
