@@ -251,13 +251,13 @@ jobs:
     - name: Deploy application
       timeout-minutes: 2
       run: |
-        cf push ${{ env.APP_NAME }} --docker-image ${{ env.DOCKER_IMAGE }} -m 2048M -k 8000M -u process --no-route|| true
+        cf push ${{ env.APP_NAME }} --docker-image ${{ env.DOCKER_IMAGE }} -m 1024M -k 2048M -u process || true
         echo "✅ Deployment process completed"
     
     - name: Set environment variables
       run: |
         # 环境变量，参考哪吒面板:https://github.com/dsadsadsss/Docker-for-Nezha-Argo-server-v1.x.git
-        cf set-env ${{ env.APP_NAME }} NAME "fire"
+        cf set-env ${{ env.APP_NAME }} NAME "nezha"
         cf set-env ${{ env.APP_NAME }} UUID "${{ secrets.UUID }}"
         cf set-env ${{ env.APP_NAME }} ARGO_DOMAIN "${{ secrets.ARGO_DOMAIN }}"
         cf set-env ${{ env.APP_NAME }} ARGO_AUTH "${{ secrets.ARGO_AUTH }}"
@@ -271,7 +271,7 @@ jobs:
         cf set-env ${{ env.APP_NAME }} GH_EMAIL "${{ secrets.GH_EMAIL }}"
         cf set-env ${{ env.APP_NAME }} GH_PAT "${{ secrets.GH_PAT }}"
         cf set-env ${{ env.APP_NAME }} GH_USER "${{ secrets.GH_USER }}"
-        cf set-env ${{ env.APP_NAME }} VNC_PASSWORD "8080"
+        
         # 可选：从文件读取环境变量(如果存在)
         if [ -f .env ]; then
           while IFS= read -r line; do
