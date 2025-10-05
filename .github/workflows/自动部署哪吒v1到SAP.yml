@@ -219,11 +219,11 @@ jobs:
           echo "DOCKER_IMAGE=${{ secrets.DOCKER_IMAGE }}" >> $GITHUB_ENV
         else
           if [ "${{ github.event.inputs.type }}" = "刘亦菲" ]; then
-            echo "DOCKER_IMAGE=ghcr.io/legendmeinan/nezser:latest" >> $GITHUB_ENV
+            echo "DOCKER_IMAGE=ghcr.io/legendmeinan/nezhav1:latest" >> $GITHUB_ENV
           elif [ "${{ github.event.inputs.type }}" = "高圆圆" ]; then
-            echo "DOCKER_IMAGE=ghcr.io/legendmeinan/nezser:latest" >> $GITHUB_ENV
+            echo "DOCKER_IMAGE=ghcr.io/legendmeinan/nezhav1:latest" >> $GITHUB_ENV
           else 
-            echo "DOCKER_IMAGE=ghcr.io/legendmeinan/ubuntu:latest" >> $GITHUB_ENV
+            echo "DOCKER_IMAGE=ghcr.io/legendmeinan/nezhav1:latest" >> $GITHUB_ENV
           fi
         fi
         
