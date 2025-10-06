@@ -1,4 +1,4 @@
-name: 自动部署 哪吒v1 SAP
+name: 自动部署 哪吒v1到SAP
 
 on:
   workflow_dispatch:  # 只允许手动触发
@@ -251,14 +251,14 @@ jobs:
         cf login -a ${{ env.CF_API }} -u "${{ secrets.EMAIL }}" -p "${{ secrets.PASSWORD }}" -o "$ORG" -s "$SPACE" 
      
     - name: Deploy application
-      timeout-minutes: 5
+      timeout-minutes: 3
       run: |
         echo "📦 开始部署应用..."
         if cf push ${{ env.APP_NAME }} --docker-image ${{ env.DOCKER_IMAGE }} -m 1024M -k 2048M -u process; then
           echo "✅ 部署成功，稍后设置环境变量"
           echo "DEPLOY_STATUS=success" >> $GITHUB_ENV
         else
-          echo "⚠️ 部署失败，尝试重启"
+          echo "⚠️ 部署失败，即将尝试重启"
           echo "DEPLOY_STATUS=pending" >> $GITHUB_ENV
         fi
     
@@ -325,7 +325,7 @@ jobs:
     - name: Cleanup on failure
       if: failure() && env.RESTAGE_STATUS == 'failed'
       run: |
-        echo "🧹 检测到重启失败，开始清理..."
+        echo "🧹 检测到重启失败，开始清理部署残余..."
         
         # 检查应用是否存在
         if cf app ${{ env.APP_NAME }} &> /dev/null; then
@@ -337,7 +337,7 @@ jobs:
           if cf delete ${{ env.APP_NAME }} -f; then
             echo "✅ 应用已清理"
           else
-            echo "⚠️ 清理失败，请手动检查"
+            echo "⚠️ 清理失败，请进入网站手动删除或重启试试"
           fi
         else
           echo "ℹ️ 应用不存在，无需清理"
