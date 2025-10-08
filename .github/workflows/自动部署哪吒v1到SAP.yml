@@ -295,19 +295,6 @@ jobs:
           echo "✅ .env 文件配置完成"
         fi
 
-    - name: Restage application
-      timeout-minutes: 5
-      run: |
-        echo "🔄 重启应用以应用新配置..."
-        if cf restage ${{ env.APP_NAME }}; then
-          echo "✅ 应用重启成功"
-          echo "RESTAGE_STATUS=success" >> $GITHUB_ENV
-        else
-          echo "❌ 应用重启失败"
-          echo "RESTAGE_STATUS=failed" >> $GITHUB_ENV
-          exit 1
-        fi
-
     - name: Verify deployment
       if: success()
       run: |
@@ -317,64 +304,10 @@ jobs:
         # 检查应用状态
         APP_STATUS=$(cf app ${{ env.APP_NAME }} | grep "^#0" | awk '{print $2}')
         if [ "$APP_STATUS" = "running" ]; then
-          echo "✅ 应用运行正常"
+          echo "✅ 应用运行正常,还需要进入网站手动重启一下应用"
         else
           echo "⚠️ 应用状态异常: $APP_STATUS"
+          echo "⚠️ 尝试进入网站手动重启试试"
         fi
 
-    - name: Cleanup on failure
-      if: failure() && env.RESTAGE_STATUS == 'failed'
-      run: |
-        echo "🧹 检测到重启失败，开始清理部署残余..."
-        
-        # 检查应用是否存在
-        if cf app ${{ env.APP_NAME }} &> /dev/null; then
-          echo "📋 应用当前状态:"
-          cf app ${{ env.APP_NAME }}
-          
-          echo ""
-          echo "🗑️ 删除失败的应用实例..."
-          if cf delete ${{ env.APP_NAME }} -f; then
-            echo "✅ 应用已清理"
-          else
-            echo "⚠️ 清理失败，请进入网站手动删除或重启试试"
-          fi
-        else
-          echo "ℹ️ 应用不存在，无需清理"
-        fi
-        
-        echo ""
-        echo "💡 建议："
-        echo "  1. 检查 GitHub Secrets 配置是否正确"
-        echo "  2. 检查 Docker 镜像是否可用"
-        echo "  3. 查看上方日志了解具体错误"
-        echo "  4. 修复问题后重新运行工作流"
-
-    - name: 详细部署信息
-      if: success()
-      run: |
-        echo "=========================================="
-        echo "🎉 部署完成！详细信息如下："
-        echo "=========================================="
-        echo "区域(Region): ${{ github.event.inputs.region }}"
-        echo "组织(ORG): ${{ env.ORG }}"
-        echo "空间(SPACE): ${{ env.SPACE }}"
-        echo "应用名称(App Name): ${{ env.APP_NAME }}"
-        echo "Docker镜像: ${{ env.DOCKER_IMAGE }}"
-        echo ""
-
-        # 获取应用路由
-        ROUTE=$(cf app ${{ env.APP_NAME }} | grep "routes:" | awk '{print $2}')
-        if [ -n "$ROUTE" ]; then
-          echo "=========================================="
-          echo "🌐 应用 URL: https://$ROUTE"
-          echo "=========================================="
-          echo ""
-          echo "📝 后续操作："
-          echo "  1. 访问上方 URL 检查应用运行状态"
-          echo "  2. 登录哪吒面板进行配置"
-          echo "  3. 如需更新，重新运行此工作流"
-        else
-          echo "⚠️ 未找到应用路由，请检查部署状态"
-          cf routes
-        fi
+    
