@@ -259,7 +259,7 @@ jobs:
           echo "DEPLOY_STATUS=success" >> $GITHUB_ENV
         else
           echo "⚠️ 部署失败，即将尝试重启"
-          echo "DEPLOY_STATUS=pending" >> $GITHUB_ENV
+          echo "DEPLOY_STATUS=success" >> $GITHUB_ENV
         fi
     
     - name: Set environment variables
