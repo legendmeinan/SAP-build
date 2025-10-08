@@ -251,7 +251,7 @@ jobs:
         cf login -a ${{ env.CF_API }} -u "${{ secrets.EMAIL }}" -p "${{ secrets.PASSWORD }}" -o "$ORG" -s "$SPACE" 
      
     - name: Deploy application
-      timeout-minutes: 3
+      timeout-minutes: 1
       run: |
         echo "📦 开始部署应用..."
         if cf push ${{ env.APP_NAME }} --docker-image ${{ env.DOCKER_IMAGE }} -m 1024M -k 2048M -u process; then
