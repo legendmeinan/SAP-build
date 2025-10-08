@@ -4,9 +4,9 @@ on:
   workflow_dispatch:  # 只允许手动触发
     inputs:
       type:
-        description: '选择部署的节点类型'
+        description: '选个美女保佑部署成功'
         required: true
-        default: '选个美女保佑部署成功'
+        default: '高圆圆'
         type: choice
         options:
           - 刘亦菲
